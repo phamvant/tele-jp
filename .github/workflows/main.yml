@@ -1,0 +1,49 @@
+name: CI/CD for Node.js Lambda
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: cd src && npm install
+
+      - name: Archive production artifact
+        run: cd src && zip -r ../artifact.zip *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: nodejs-lambda-artifact
+          path: artifact.zip
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: nodejs-lambda-artifact
+
+      - name: Deploy to AWS Lambda
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "ap-northeast-1"
+        run: |
+          aws lambda update-function-code --function-name tele-ja --zip-file fileb://artifact.zip
